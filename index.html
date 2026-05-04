@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>33のキャンドル - Happy 33rd Birthday!</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  overflow: hidden;
+  background: #1a0a2e;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  touch-action: none;
+  user-select: none;
+}
+canvas { display: block; }
+#ui {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+#counter {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 200, 150, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 200, 150, 0.3);
+  border-radius: 30px;
+  padding: 12px 28px;
+  color: #ffd700;
+  font-size: 1.3em;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  z-index: 100;
+}
+#instruction {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 220, 180, 0.8);
+  font-size: 0.95em;
+  text-align: center;
+  z-index: 100;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+#celebration {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  z-index: 200;
+  pointer-events: none;
+}
+#celebration.active {
+  display: flex;
+  animation: fadeIn 0.5s ease;
+}
+#celebration h1 {
+  font-size: clamp(1.8em, 6vw, 3.5em);
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 0 20px #ffd700, 0 0 40px #ff6b9d, 0 0 60px #ffd700;
+  animation: celebText 1s ease-out;
+  line-height: 1.4;
+}
+#celebration p {
+  font-size: clamp(1em, 3vw, 1.5em);
+  color: #ffd700;
+  margin-top: 15px;
+  animation: celebText 1.5s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes celebText {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="counter">0/33 消した!</div>
+<div id="instruction">キャンドルをタップして消そう!</div>
+<div id="celebration">
+  <h1>🎂 Happy 33rd Birthday! 🎂</h1>
+  <p>お誕生日おめでとう!</p>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// Scene setup
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 8, 14);
+camera.lookAt(0, 2, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+// Controls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.enablePan = false;
+controls.minDistance = 8;
+controls.maxDistance = 22;
+controls.minPolarAngle = 0.3;
+controls.maxPolarAngle = Math.PI / 2.1;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.8;
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffeedd, 0.3);
+scene.add(ambientLight);
+
+const warmLight = new THREE.PointLight(0xffaa44, 1.5, 30);
+warmLight.position.set(0, 10, 0);
+warmLight.castShadow = true;
+scene.add(warmLight);
+
+const fillLight = new THREE.DirectionalLight(0xfff0dd, 0.4);
+fillLight.position.set(5, 8, 5);
+scene.add(fillLight);
+
+const backLight = new THREE.DirectionalLight(0x8888ff, 0.2);
+backLight.position.set(-5, 5, -5);
+scene.add(backLight);
+
+// Background - starfield
+const starsGeo = new THREE.BufferGeometry();
+const starsPositions = [];
+for (let i = 0; i < 500; i++) {
+  const r = 50 + Math.random() * 50;
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.random() * Math.PI;
+  starsPositions.push(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.cos(phi),
+    r * Math.sin(phi) * Math.sin(theta)
+  );
+}
+starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starsPositions, 3));
+const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.3, transparent: true, opacity: 0.7 });
+scene.add(new THREE.Points(starsGeo, starsMat));
+
+// Gradient background
+scene.background = new THREE.Color(0x1a0a2e);
+scene.fog = new THREE.Fog(0x1a0a2e, 30, 80);
+
+// Cake group
+const cakeGroup = new THREE.Group();
+scene.add(cakeGroup);
+
+// Cake layers
+function createCakeLayer(radius, height, y, color, frostingColor) {
+  const group = new THREE.Group();
+
+  // Main cylinder
+  const cakeGeo = new THREE.CylinderGeometry(radius, radius + 0.1, height, 48);
+  const cakeMat = new THREE.MeshStandardMaterial({
+    color: color,
+    roughness: 0.6,
+    metalness: 0.05
+  });
+  const cake = new THREE.Mesh(cakeGeo, cakeMat);
+  cake.position.y = y;
+  cake.castShadow = true;
+  cake.receiveShadow = true;
+  group.add(cake);
+
+  // Frosting ring on top edge
+  const frostGeo = new THREE.TorusGeometry(radius - 0.05, 0.12, 12, 48);
+  const frostMat = new THREE.MeshStandardMaterial({
+    color: frostingColor,
+    roughness: 0.3,
+    metalness: 0.1
+  });
+  const frosting = new THREE.Mesh(frostGeo, frostMat);
+  frosting.rotation.x = Math.PI / 2;
+  frosting.position.y = y + height / 2;
+  group.add(frosting);
+
+  // Decorative dots around the side
+  const dotCount = Math.floor(radius * 8);
+  for (let i = 0; i < dotCount; i++) {
+    const angle = (i / dotCount) * Math.PI * 2;
+    const dotGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    const dotMat = new THREE.MeshStandardMaterial({ color: frostingColor, roughness: 0.3 });
+    const dot = new THREE.Mesh(dotGeo, dotMat);
+    dot.position.set(
+      Math.cos(angle) * (radius + 0.05),
+      y,
+      Math.sin(angle) * (radius + 0.05)
+    );
+    group.add(dot);
+  }
+
+  return group;
+}
+
+// Three-tier cake
+const layer1 = createCakeLayer(3.5, 1.5, 0.75, 0xffe4e1, 0xffc0cb);  // Bottom - misty rose
+const layer2 = createCakeLayer(2.6, 1.3, 2.15, 0xfff0f5, 0xffb6c1);  // Middle - lavender blush
+const layer3 = createCakeLayer(1.8, 1.1, 3.35, 0xfffaf0, 0xffd700);  // Top - floral white with gold
+cakeGroup.add(layer1, layer2, layer3);
+
+// Cake plate
+const plateGeo = new THREE.CylinderGeometry(4.2, 4.5, 0.15, 48);
+const plateMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.6 });
+const plate = new THREE.Mesh(plateGeo, plateMat);
+plate.position.y = -0.05;
+plate.receiveShadow = true;
+cakeGroup.add(plate);
+
+// "33" on the cake front (using spheres to form numbers)
+function createNumber3(offsetX, y, z, radius) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.3, metalness: 0.4 });
+
+  // Approximate "3" with small spheres along a path
+  const points = [];
+  for (let t = -0.8; t <= 0.8; t += 0.15) {
+    points.push(new THREE.Vector3(
+      offsetX + Math.cos(t * 2) * 0.3,
+      y + t * 0.5,
+      z
+    ));
+  }
+  // Add curve back
+  for (let t = -0.8; t <= 0.8; t += 0.15) {
+    points.push(new THREE.Vector3(
+      offsetX + Math.cos(t * 2) * 0.3,
+      y + t * 0.5 - 0.8,
+      z
+    ));
+  }
+
+  points.forEach(p => {
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), mat);
+    sphere.position.copy(p);
+    group.add(sphere);
+  });
+
+  return group;
+}
+
+// Simpler "33" using torus arcs
+function create33(y) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.5, emissive: 0xffaa00, emissiveIntensity: 0.2 });
+
+  // First "3"
+  const arc1 = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 8, 16, Math.PI * 1.2), mat);
+  arc1.position.set(-0.4, y + 0.25, 1.85);
+  arc1.rotation.y = Math.PI;
+  arc1.rotation.z = -0.3;
+  group.add(arc1);
+
+  const arc2 = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 8, 16, Math.PI * 1.2), mat);
+  arc2.position.set(-0.4, y - 0.2, 1.85);
+  arc2.rotation.y = Math.PI;
+  arc2.rotation.z = 0.3;
+  group.add(arc2);
+
+  // Second "3"
+  const arc3 = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 8, 16, Math.PI * 1.2), mat);
+  arc3.position.set(0.4, y + 0.25, 1.85);
+  arc3.rotation.y = Math.PI;
+  arc3.rotation.z = -0.3;
+  group.add(arc3);
+
+  const arc4 = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 8, 16, Math.PI * 1.2), mat);
+  arc4.position.set(0.4, y - 0.2, 1.85);
+  arc4.rotation.y = Math.PI;
+  arc4.rotation.z = 0.3;
+  group.add(arc4);
+
+  return group;
+}
+
+const numberDecor = create33(2.8);
+cakeGroup.add(numberDecor);
+
+// Candles
+const candles = [];
+const candleFlames = [];
+const candleLights = [];
+let blownCount = 0;
+
+function createCandle(x, y, z, index) {
+  const group = new THREE.Group();
+
+  // Candle body - thin cylinder with slight taper
+  const colors = [0xffb6c1, 0xffd700, 0xadd8e6, 0xdda0dd, 0x98fb98, 0xffa07a];
+  const candleColor = colors[index % colors.length];
+  const candleGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.8, 12);
+  const candleMat = new THREE.MeshStandardMaterial({ color: candleColor, roughness: 0.4 });
+  const candle = new THREE.Mesh(candleGeo, candleMat);
+  candle.position.set(x, y + 0.4, z);
+  candle.castShadow = true;
+  group.add(candle);
+
+  // Wick
+  const wickGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.1, 6);
+  const wickMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+  const wick = new THREE.Mesh(wickGeo, wickMat);
+  wick.position.set(x, y + 0.85, z);
+  group.add(wick);
+
+  // Flame (inner - bright yellow)
+  const flameGeo = new THREE.SphereGeometry(0.06, 8, 8);
+  flameGeo.scale(1, 2, 1);
+  const flameMat = new THREE.MeshBasicMaterial({
+    color: 0xffff44,
+    transparent: true,
+    opacity: 0.95
+  });
+  const flame = new THREE.Mesh(flameGeo, flameMat);
+  flame.position.set(x, y + 1.0, z);
+  group.add(flame);
+
+  // Flame outer glow
+  const glowGeo = new THREE.SphereGeometry(0.09, 8, 8);
+  glowGeo.scale(1, 1.8, 1);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xff6600,
+    transparent: true,
+    opacity: 0.4
+  });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  glow.position.set(x, y + 0.98, z);
+  group.add(glow);
+
+  // Point light per candle (very subtle)
+  const light = new THREE.PointLight(0xffaa33, 0.15, 2);
+  light.position.set(x, y + 1.1, z);
+  group.add(light);
+
+  cakeGroup.add(group);
+
+  const candleData = {
+    group,
+    flame,
+    glow,
+    light,
+    candle,
+    wick,
+    lit: true,
+    index,
+    baseY: y + 1.0,
+    animPhase: Math.random() * Math.PI * 2,
+    blowAnim: 0,
+    smokeParticles: []
+  };
+
+  candles.push(candleData);
+  candleFlames.push(flame);
+  candleLights.push(light);
+
+  return candleData;
+}
+
+// Arrange 33 candles in concentric circles
+// Inner ring: 7, Middle ring: 12, Outer ring: 14
+const candleArrangement = [
+  { count: 7, radius: 0.7, y: 3.9 },   // Top tier
+  { count: 12, radius: 1.8, y: 2.8 },   // Middle tier
+  { count: 14, radius: 2.9, y: 1.5 },   // Bottom tier
+];
+
+let candleIndex = 0;
+candleArrangement.forEach(ring => {
+  for (let i = 0; i < ring.count; i++) {
+    const angle = (i / ring.count) * Math.PI * 2 + (ring.radius > 2 ? 0.1 : 0);
+    const x = Math.cos(angle) * ring.radius;
+    const z = Math.sin(angle) * ring.radius;
+    createCandle(x, ring.y, z, candleIndex);
+    candleIndex++;
+  }
+});
+
+// Raycaster for click detection
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+function getFlameObjects() {
+  return candles.filter(c => c.lit).map(c => c.flame);
+}
+
+function onPointerDown(event) {
+  event.preventDefault();
+
+  const x = event.clientX || (event.touches && event.touches[0].clientX);
+  const y = event.clientY || (event.touches && event.touches[0].clientY);
+
+  if (x === undefined) return;
+
+  pointer.x = (x / window.innerWidth) * 2 - 1;
+  pointer.y = -(y / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(pointer, camera);
+
+  // Check against all lit candle parts (flames + candle bodies)
+  const clickTargets = candles.filter(c => c.lit).flatMap(c => [c.flame, c.glow, c.candle, c.wick]);
+  const intersects = raycaster.intersectObjects(clickTargets);
+
+  if (intersects.length > 0) {
+    const hitObject = intersects[0].object;
+    const candleData = candles.find(c => c.lit && (c.flame === hitObject || c.glow === hitObject || c.candle === hitObject || c.wick === hitObject));
+    if (candleData) {
+      blowOutCandle(candleData);
+    }
+  }
+}
+
+renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+// Blow out candle
+function blowOutCandle(candleData) {
+  if (!candleData.lit) return;
+  candleData.lit = false;
+  candleData.blowAnim = 1.0;
+  blownCount++;
+
+  document.getElementById('counter').textContent = `${blownCount}/33 消した!`;
+
+  // Create smoke particles
+  createSmoke(candleData);
+
+  // Check win condition
+  if (blownCount === 33) {
+    setTimeout(startCelebration, 800);
+  }
+}
+
+// Smoke particles
+const smokeParticles = [];
+
+function createSmoke(candleData) {
+  const pos = new THREE.Vector3();
+  candleData.flame.getWorldPosition(pos);
+
+  for (let i = 0; i < 8; i++) {
+    const geo = new THREE.SphereGeometry(0.03 + Math.random() * 0.03, 6, 6);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xcccccc,
+      transparent: true,
+      opacity: 0.7
+    });
+    const particle = new THREE.Mesh(geo, mat);
+    particle.position.copy(pos);
+    particle.position.x += (Math.random() - 0.5) * 0.1;
+    particle.position.z += (Math.random() - 0.5) * 0.1;
+    scene.add(particle);
+
+    smokeParticles.push({
+      mesh: particle,
+      velocity: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02,
+        0.02 + Math.random() * 0.03,
+        (Math.random() - 0.5) * 0.02
+      ),
+      life: 1.0,
+      decay: 0.015 + Math.random() * 0.01
+    });
+  }
+}
+
+// Celebration effects
+let celebrating = false;
+const fireworks = [];
+const confetti = [];
+
+function startCelebration() {
+  celebrating = true;
+  document.getElementById('celebration').classList.add('active');
+  document.getElementById('instruction').style.display = 'none';
+
+  // Screen shake
+  shakeIntensity = 0.5;
+
+  // Launch fireworks
+  for (let i = 0; i < 8; i++) {
+    setTimeout(() => launchFirework(), i * 400);
+  }
+
+  // Continuous fireworks
+  setInterval(() => {
+    if (celebrating) launchFirework();
+  }, 600);
+
+  // Confetti
+  createConfetti();
+}
+
+let shakeIntensity = 0;
+
+function launchFirework() {
+  const colors = [0xff1493, 0xffd700, 0x00ff88, 0xff4500, 0x9400d3, 0x00bfff, 0xff69b4];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const origin = new THREE.Vector3(
+    (Math.random() - 0.5) * 15,
+    5 + Math.random() * 8,
+    (Math.random() - 0.5) * 15
+  );
+
+  const particleCount = 40 + Math.floor(Math.random() * 30);
+
+  for (let i = 0; i < particleCount; i++) {
+    const geo = new THREE.SphereGeometry(0.06 + Math.random() * 0.06, 6, 6);
+    const mat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 1.0
+    });
+    const particle = new THREE.Mesh(geo, mat);
+    particle.position.copy(origin);
+    scene.add(particle);
+
+    const dir = new THREE.Vector3(
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 2
+    ).normalize();
+    const speed = 0.08 + Math.random() * 0.12;
+
+    fireworks.push({
+      mesh: particle,
+      velocity: dir.multiplyScalar(speed),
+      life: 1.0,
+      decay: 0.008 + Math.random() * 0.008,
+      gravity: 0.001
+    });
+  }
+
+  // Flash light
+  const flashLight = new THREE.PointLight(color, 3, 20);
+  flashLight.position.copy(origin);
+  scene.add(flashLight);
+  setTimeout(() => scene.remove(flashLight), 300);
+}
+
+function createConfetti() {
+  const colors = [0xff1493, 0xffd700, 0x00ff88, 0xff4500, 0x9400d3, 0x00bfff, 0xffb6c1, 0xffa500];
+
+  for (let i = 0; i < 200; i++) {
+    const geo = new THREE.PlaneGeometry(0.15 + Math.random() * 0.15, 0.15 + Math.random() * 0.15);
+    const mat = new THREE.MeshBasicMaterial({
+      color: colors[Math.floor(Math.random() * colors.length)],
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide
+    });
+    const piece = new THREE.Mesh(geo, mat);
+    piece.position.set(
+      (Math.random() - 0.5) * 20,
+      15 + Math.random() * 10,
+      (Math.random() - 0.5) * 20
+    );
+    piece.rotation.set(
+      Math.random() * Math.PI,
+      Math.random() * Math.PI,
+      Math.random() * Math.PI
+    );
+    scene.add(piece);
+
+    confetti.push({
+      mesh: piece,
+      velocity: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02,
+        -0.02 - Math.random() * 0.03,
+        (Math.random() - 0.5) * 0.02
+      ),
+      rotSpeed: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.1
+      ),
+      life: 1.0
+    });
+  }
+}
+
+// Animation loop
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const t = clock.getElapsedTime();
+
+  controls.update();
+
+  // Animate lit candle flames
+  candles.forEach(c => {
+    if (c.lit) {
+      // Flickering effect
+      const flicker = Math.sin(t * 8 + c.animPhase) * 0.15 +
+                      Math.sin(t * 13 + c.animPhase * 2) * 0.1 +
+                      Math.sin(t * 21 + c.animPhase * 3) * 0.05;
+
+      const scaleY = 1.0 + flicker * 0.3;
+      const scaleX = 1.0 - flicker * 0.1;
+      c.flame.scale.set(scaleX, scaleY, scaleX);
+      c.glow.scale.set(scaleX * 1.1, scaleY * 0.9, scaleX * 1.1);
+
+      // Color shift
+      const hue = 0.12 + flicker * 0.05;
+      c.flame.material.color.setHSL(hue, 1.0, 0.6);
+      c.glow.material.color.setHSL(hue - 0.05, 1.0, 0.4);
+
+      // Light intensity flicker
+      c.light.intensity = 0.12 + flicker * 0.05;
+
+      // Subtle position sway
+      c.flame.position.y = c.baseY + flicker * 0.02;
+    } else if (c.blowAnim > 0) {
+      // Blow out animation
+      c.blowAnim -= dt * 3;
+      if (c.blowAnim <= 0) {
+        c.blowAnim = 0;
+        c.flame.visible = false;
+        c.glow.visible = false;
+        c.light.intensity = 0;
+      } else {
+        c.flame.scale.set(c.blowAnim, c.blowAnim, c.blowAnim);
+        c.glow.scale.set(c.blowAnim, c.blowAnim, c.blowAnim);
+        c.flame.material.opacity = c.blowAnim;
+        c.glow.material.opacity = c.blowAnim * 0.4;
+        c.light.intensity = c.blowAnim * 0.1;
+      }
+
+      // Darken the candle slightly
+      c.candle.material.color.lerp(new THREE.Color(0x666666), 0.02);
+    }
+  });
+
+  // Animate smoke
+  for (let i = smokeParticles.length - 1; i >= 0; i--) {
+    const p = smokeParticles[i];
+    p.mesh.position.add(p.velocity);
+    p.life -= p.decay;
+    p.mesh.material.opacity = p.life * 0.6;
+    p.mesh.scale.setScalar(1 + (1 - p.life) * 2);
+
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      smokeParticles.splice(i, 1);
+    }
+  }
+
+  // Animate fireworks
+  for (let i = fireworks.length - 1; i >= 0; i--) {
+    const p = fireworks[i];
+    p.mesh.position.add(p.velocity);
+    p.velocity.y -= p.gravity;
+    p.velocity.multiplyScalar(0.98);
+    p.life -= p.decay;
+    p.mesh.material.opacity = p.life;
+
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      fireworks.splice(i, 1);
+    }
+  }
+
+  // Animate confetti
+  for (let i = confetti.length - 1; i >= 0; i--) {
+    const c = confetti[i];
+    c.mesh.position.add(c.velocity);
+    c.mesh.rotation.x += c.rotSpeed.x;
+    c.mesh.rotation.y += c.rotSpeed.y;
+    c.mesh.rotation.z += c.rotSpeed.z;
+
+    // Wind effect
+    c.velocity.x += (Math.random() - 0.5) * 0.001;
+
+    if (c.mesh.position.y < -5) {
+      c.mesh.position.y = 15;
+      c.mesh.position.x = (Math.random() - 0.5) * 20;
+      c.mesh.position.z = (Math.random() - 0.5) * 20;
+    }
+  }
+
+  // Screen shake
+  if (shakeIntensity > 0) {
+    camera.position.x += (Math.random() - 0.5) * shakeIntensity * 0.3;
+    camera.position.y += (Math.random() - 0.5) * shakeIntensity * 0.2;
+    shakeIntensity *= 0.95;
+    if (shakeIntensity < 0.01) shakeIntensity = 0;
+  }
+
+  // Animate stars twinkle
+  const starsOpacity = 0.5 + Math.sin(t * 0.5) * 0.2;
+  starsMat.opacity = starsOpacity;
+
+  // Warm light pulse
+  warmLight.intensity = 1.2 + Math.sin(t * 2) * 0.2;
+
+  renderer.render(scene, camera);
+}
+
+// Handle resize
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
